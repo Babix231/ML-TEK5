@@ -146,6 +146,8 @@ def train_one_epoch(model, loader, optimizer, criterion, device, scaler=None):
 
     epoch_loss = running_loss / total
     epoch_acc = correct / total * 100.0
+    if device.type == "cuda":
+        torch.cuda.synchronize()
     dt = time.time() - t0
     return epoch_loss, epoch_acc, dt
 
@@ -164,6 +166,46 @@ def evaluate(model, loader, criterion, device):
     test_loss = loss_sum / total
     test_acc = correct / total * 100.0
     return test_loss, test_acc
+
+
+@torch.inference_mode()
+def benchmark_inference(model, device, sample_tensor, batch_size=256, repeat=100):
+    model.eval()
+
+    # --- SINGLE IMAGE ---
+    x1 = sample_tensor.to(device, non_blocking=True)
+
+    # warmup
+    _ = model(x1)
+
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    for _ in range(repeat):
+        _ = model(x1)
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    t1 = time.perf_counter()
+
+    single_ms = ((t1 - t0) / repeat) * 1000.0
+
+    # --- BATCH ---
+    xb = x1.repeat(batch_size, 1, 1, 1)  # [B,1,28,28]
+    _ = model(xb)
+
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    _ = model(xb)
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+    t1 = time.perf_counter()
+
+    batch_ms_total = (t1 - t0) * 1000.0
+    ms_per_img_batch = batch_ms_total / batch_size
+    imgs_per_sec = (batch_size / (t1 - t0))
+
+    return single_ms, ms_per_img_batch, imgs_per_sec
 
 # -----------------------
 # Main
@@ -194,31 +236,55 @@ def main():
     save_dir.mkdir(parents=True, exist_ok=True)
     best_path = save_dir / "mnist_cnn_best.pt"
 
-    best_path = Path(args.save_dir) / "mnist_cnn_best.pt"
     if args.eval_only:
-        # charge et évalue sans ré-entraîner
         model.load_state_dict(torch.load(best_path, map_location=device))
-        _, test_loader = make_dataloaders(args.dataset, args.batch_size, args.test_batch_size, args.num_workers)
-        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
-        print(f"[EVAL ONLY] {best_path} | test_loss={test_loss:.4f} test_acc={test_acc:.2f}%")
 
-        tx = T.Compose([T.Grayscale(), T.Resize((28, 28)), T.ToTensor(), T.Normalize((0.1307,), (0.3081,))])
-        img9 = Image.open("data/MNIST/9.png")
-        img3 = Image.open("data/MNIST/3.png")
-        img4 = Image.open("data/MNIST/4.png")
+        # petite image de test perso OU fallback dataset test[0]
+        tx = T.Compose([
+            T.Grayscale(),
+            T.Resize((28, 28)),
+            T.ToTensor(),
+            T.Normalize((0.1307,), (0.3081,))
+        ])
 
-        img = img9
-        x = tx(img).unsqueeze(0)
+        try:
+            img = Image.open("data/MNIST/9.png")
+        except:
+            # fallback: prends la première image du test_loader
+            sample_img, _ = next(iter(test_loader))
+            img = None
+            x = sample_img[0:1]  # [1,1,28,28]
 
+        if img is not None:
+            x = tx(img).unsqueeze(0)
+
+        # prédiction simple + temps single
         model.eval()
-        start = time.perf_counter()
+        x = x.to(device, non_blocking=True)
+
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+        t0 = time.perf_counter()
         with torch.inference_mode():
-            logits = model(x.to(next(model.parameters()).device))
+            logits = model(x)
             pred = logits.argmax(1).item()
-        end = time.perf_counter()
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+        t1 = time.perf_counter()
+
+        single_call_ms = (t1 - t0) * 1000.0
 
         print(f"Prediction: {pred}")
-        print(f"Inference time: {(end - start) * 1000:.3f} ms")
+        print(f"Inference time (single call): {single_call_ms:.3f} ms")
+
+        # benchmark propre single vs batch
+        single_ms, ms_per_img_batch, ips = benchmark_inference(model, device, x)
+        print(f"[Latency] single-image avg : {single_ms:.3f} ms/img")
+        print(f"[Latency] batch amortized : {ms_per_img_batch:.3f} ms/img (~{ips:.1f} img/s)")
+
+        # métriques globales
+        test_loss, test_acc = evaluate(model, test_loader, criterion, device)
+        print(f"[EVAL ONLY] test_loss={test_loss:.4f} test_acc={test_acc:.2f}%")
         return
 
     for epoch in range(1, args.epochs + 1):
