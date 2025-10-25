@@ -55,7 +55,7 @@ print(df2.info())
 trdata,tedata = train_test_split(df2,test_size=0.3,random_state=43)
 
 trdata.hist(bins=60, figsize=(15,9),color="purple")
-# plt.show()
+plt.show()
 
 def corrMat(df, id=False):
     numeric_df = df.select_dtypes(include=[np.number])
@@ -78,7 +78,7 @@ def corrMat(df, id=False):
         annot=True,
         cbar=False
     )
-    # plt.show()
+    plt.show()
 
 corrMat(trdata)
 
@@ -102,7 +102,7 @@ def plotTwo(df, lst):
 
     plt.tight_layout()
     plt.subplots_adjust(wspace=-0.5)
-    # plt.show()
+    plt.show()
 
 plotTwo(trdata,['population','median_income'])
 plotTwo(trdata,['housing_median_age','median_house_value'])
@@ -113,7 +113,7 @@ maxval2 = trdata['median_house_value'].max()
 trdata_upd = trdata[trdata['median_house_value'] != maxval2]
 tedata_upd = tedata[tedata['median_house_value'] != maxval2]
 trdata_upd.hist(bins=60, figsize=(15,9),color="purple")
-# plt.show()
+plt.show()
 
 
 trdata_upd['diag_coord'] = (trdata_upd['longitude'] + trdata_upd['latitude'])

@@ -45,12 +45,4 @@ print("\n=== Métrique 2 : Manhattan (brute, unités conservées) ===")
 print_pair_info("Plus proches (Manhattan)", closest_m, dist_matrix_manhattan)
 print_pair_info("Plus éloignées (Manhattan)", farthest_m, dist_matrix_manhattan)
 
-# ---- Commentaire automatique ----
-print("\n=== Analyse ===")
-print("- La métrique Euclidienne standardisée met toutes les colonnes au même poids :")
-print("  → Les différences relatives (ex : âge vs cholestérol) comptent autant, peu importe l’unité.")
-print("- La métrique Manhattan brute garde l’effet des unités :")
-print("  → Les colonnes avec de grandes échelles (ex : taille en cm, cholestérol en mg/dL) dominent plus la distance.")
-print("- Ainsi, les paires les plus proches et les plus éloignées ne sont pas les mêmes selon la métrique,")
-print("  car chaque définition de distance équilibre différemment l’influence des variables.")
 

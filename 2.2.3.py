@@ -203,8 +203,12 @@ def main():
         print(f"[EVAL ONLY] {best_path} | test_loss={test_loss:.4f} test_acc={test_acc:.2f}%")
 
         tx = T.Compose([T.Grayscale(), T.Resize((28, 28)), T.ToTensor(), T.Normalize((0.1307,), (0.3081,))])
-        img = Image.open("data/test5.png")  # image 28x28 fond sombre, chiffre clair (comme MNIST)
-        x = tx(img).unsqueeze(0)  # shape: [1,1,28,28]
+        img9 = Image.open("data/MNIST/9.png")
+        img3 = Image.open("data/MNIST/3.png")
+        img4 = Image.open("data/MNIST/4.png")
+
+        img = img9
+        x = tx(img).unsqueeze(0)
 
         model.eval()
         start = time.perf_counter()

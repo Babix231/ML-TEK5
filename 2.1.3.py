@@ -23,8 +23,7 @@ plt.xlabel("Height (cm)")
 plt.ylabel("Weight (kg)")
 plt.title("Samples of Z = (Height, Weight)")
 plt.legend()
-plt.savefig("data/213/samples_scatter.png", dpi=300)
-plt.close()
+plt.show()
 
 # ---- 3) Loi des grands nombres ----
 empirical_means = np.cumsum(Z, axis=0) / np.arange(1, n_samples+1).reshape(-1,1)
@@ -38,5 +37,5 @@ plt.xlabel("n (number of samples)")
 plt.ylabel("Euclidean distance")
 plt.title("Convergence of empirical mean to expected value (Law of Large Numbers)")
 plt.legend()
-plt.savefig("data/213/convergence_lln.png", dpi=300)
-plt.close()
+plt.show()
+
